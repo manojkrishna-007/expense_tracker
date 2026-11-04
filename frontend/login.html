@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Money Manager - Login</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f6f9;
+            color: #333333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .login-card {
+            background: #ffffff;
+            border: 1px solid #e1e8ed;
+            border-radius: 4px;
+            padding: 30px;
+            width: 350px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        h2 { font-size: 1.25rem; color: #2c3e50; margin-bottom: 20px; text-align: center; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.85rem; font-weight: 600; color: #555555; margin-bottom: 5px; }
+        input { width: 100%; padding: 9px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
+        input:focus { outline: none; border-color: #3498db; }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover { background-color: #2980b9; }
+        .btn-register { background-color: #2ecc71; margin-top: 8px; }
+        .btn-register:hover { background-color: #27ae60; }
+        .msg { font-size: 0.85rem; text-align: center; margin-top: 12px; color: #e74c3c; }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <h2>💼 Money Manager</h2>
+        <form id="authForm">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="username" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit" id="loginBtn">Log In</button>
+            <button type="button" id="registerBtn" class="btn-register">Register Account</button>
+        </form>
+        <div id="message" class="msg"></div>
+    </div>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:8000/api";
+
+        // Handle Login
+        document.getElementById("authForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+            const msgEl = document.getElementById("message");
+
+            try {
+                const response = await fetch(`${API_BASE}/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password }),
+                    credentials: "include"
+                });
+
+                if (response.ok) {
+                    window.location.href = "index.html"; // Redirect to dashboard on success
+                } else {
+                    const data = await response.json();
+                    msgEl.textContent = data.detail || "Login failed";
+                }
+            } catch (err) {
+                msgEl.textContent = "Server error. Is FastAPI running?";
+            }
+        });
+
+        // Handle Register
+        document.getElementById("registerBtn").addEventListener("click", async () => {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+            const msgEl = document.getElementById("message");
+
+            if (!username || !password) {
+                msgEl.textContent = "Please enter username and password.";
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/register`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    msgEl.style.color = "#2ecc71";
+                    msgEl.textContent = "Registered successfully! Now click Log In.";
+                } else {
+                    msgEl.style.color = "#e74c3c";
+                    msgEl.textContent = data.detail || "Registration failed";
+                }
+            } catch (err) {
+                msgEl.textContent = "Server error. Is FastAPI running?";
+            }
+        });
+    </script>
+</body>
+</html>

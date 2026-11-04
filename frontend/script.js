@@ -1,18 +1,27 @@
 const API_URL = "http://127.0.0.1:8000/api/expenses";
 let expenseChart = null;
-let editingId = null; // Tracks if we are currently editing an expense
+let editingId = null; 
+let allExpenses = []; // Holds all fetched expenses for client-side filtering
 
 // Set default date to today in the form
 document.getElementById('date').valueAsDate = new Date();
 
 async function loadDashboard() {
     try {
-        const response = await fetch(API_URL);
-        const expenses = await response.json();
+        const response = await fetch(API_URL, {
+            credentials: "include"
+        });
         
-        updateMetrics(expenses);
-        updateTable(expenses);
-        updateChart(expenses);
+        if (response.status === 401) {
+            window.location.href = "login.html";
+            return;
+        }
+
+        allExpenses = await response.json();
+        
+        updateMetrics(allExpenses);
+        filterAndRenderTable();
+        updateChart(allExpenses);
     } catch (error) {
         console.error("Error loading dashboard data:", error);
     }
@@ -36,12 +45,26 @@ function updateMetrics(expenses) {
     document.getElementById("topCategory").textContent = topCat;
 }
 
+// Filters expenses based on search input and category dropdown, then renders table
+function filterAndRenderTable() {
+    const searchQuery = document.getElementById("searchFilter").value.toLowerCase();
+    const selectedCategory = document.getElementById("categoryFilter").value;
+
+    const filtered = allExpenses.filter(exp => {
+        const matchesSearch = exp.title.toLowerCase().includes(searchQuery);
+        const matchesCategory = selectedCategory === "" || exp.category === selectedCategory;
+        return matchesSearch && matchesCategory;
+    });
+
+    updateTable(filtered);
+}
+
 function updateTable(expenses) {
     const tbody = document.getElementById("expenseTableBody");
     tbody.innerHTML = "";
 
     if (expenses.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #7f8c8d; padding: 20px;">No transactions recorded yet.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #7f8c8d; padding: 20px;">No matching transactions found.</td></tr>`;
         return;
     }
 
@@ -99,13 +122,18 @@ function updateChart(expenses) {
     });
 }
 
+// Event Listeners for Filters
+document.getElementById("searchFilter").addEventListener("input", filterAndRenderTable);
+document.getElementById("categoryFilter").addEventListener("change", filterAndRenderTable);
+
 // Function to delete an expense
 async function deleteExpense(id) {
     if (!confirm("Are you sure you want to delete this transaction?")) return;
 
     try {
         const response = await fetch(`${API_URL}/${id}`, {
-            method: "DELETE"
+            method: "DELETE",
+            credentials: "include"
         });
 
         if (response.ok) {
@@ -154,7 +182,8 @@ document.getElementById("expenseForm").addEventListener("submit", async (e) => {
         const response = await fetch(url, {
             method: method,
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(expenseData)
+            body: JSON.stringify(expenseData),
+            credentials: "include"
         });
 
         if (response.ok) {

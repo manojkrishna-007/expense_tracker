@@ -1,5 +1,6 @@
 const API_URL = "http://127.0.0.1:8000/api/expenses";
 let expenseChart = null;
+let editingId = null; // Tracks if we are currently editing an expense
 
 // Set default date to today in the form
 document.getElementById('date').valueAsDate = new Date();
@@ -21,7 +22,6 @@ function updateMetrics(expenses) {
     const totalSpent = expenses.reduce((sum, item) => sum + item.amount, 0);
     const totalCount = expenses.length;
 
-    // Calculate top category
     let topCat = "-";
     if (totalCount > 0) {
         const catCounts = {};
@@ -41,18 +41,21 @@ function updateTable(expenses) {
     tbody.innerHTML = "";
 
     if (expenses.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-slate-400">No transactions recorded yet.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #7f8c8d; padding: 20px;">No transactions recorded yet.</td></tr>`;
         return;
     }
 
     expenses.forEach(exp => {
         const tr = document.createElement("tr");
-        tr.className = "hover:bg-slate-50 transition-colors";
         tr.innerHTML = `
-            <td class="px-6 py-4 font-medium text-slate-900">${exp.title}</td>
-            <td class="px-6 py-4"><span class="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-full font-medium">${exp.category}</span></td>
-            <td class="px-6 py-4 text-slate-500">${exp.date}</td>
-            <td class="px-6 py-4 text-right font-semibold text-slate-900">$${exp.amount.toFixed(2)}</td>
+            <td><strong>${exp.title}</strong></td>
+            <td><span class="badge">${exp.category}</span></td>
+            <td>${exp.date}</td>
+            <td class="text-right"><strong>$${exp.amount.toFixed(2)}</strong></td>
+            <td class="text-right">
+                <button onclick="editExpense(${exp.id}, '${exp.title}', ${exp.amount}, '${exp.category}', '${exp.date}')" style="background: none; border: none; color: #3498db; cursor: pointer; font-size: 0.85rem; margin-right: 8px; font-weight: 600;">Edit</button>
+                <button onclick="deleteExpense(${exp.id})" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Delete</button>
+            </td>
         `;
         tbody.appendChild(tr);
     });
@@ -61,7 +64,6 @@ function updateTable(expenses) {
 function updateChart(expenses) {
     const ctx = document.getElementById("expenseChart").getContext("2d");
 
-    // Aggregate amounts by category
     const categoryTotals = {};
     expenses.forEach(exp => {
         categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
@@ -71,7 +73,7 @@ function updateChart(expenses) {
     const data = Object.values(categoryTotals);
 
     if (expenseChart) {
-        expenseChart.destroy(); // Destroy previous instance to avoid visual bugs on update
+        expenseChart.destroy();
     }
 
     expenseChart = new Chart(ctx, {
@@ -80,7 +82,7 @@ function updateChart(expenses) {
             labels: labels,
             datasets: [{
                 data: data,
-                backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'],
+                backgroundColor: ['#3498db', '#2ecc71', '#e67e22', '#e74c3c', '#9b59b6', '#95a5a6'],
                 borderWidth: 2,
                 borderColor: '#ffffff'
             }]
@@ -97,7 +99,39 @@ function updateChart(expenses) {
     });
 }
 
-// Handle Form Submission
+// Function to delete an expense
+async function deleteExpense(id) {
+    if (!confirm("Are you sure you want to delete this transaction?")) return;
+
+    try {
+        const response = await fetch(`${API_URL}/${id}`, {
+            method: "DELETE"
+        });
+
+        if (response.ok) {
+            loadDashboard();
+        } else {
+            alert("Failed to delete transaction.");
+        }
+    } catch (error) {
+        console.error("Error deleting expense:", error);
+    }
+}
+
+// Function to populate form for editing
+function editExpense(id, title, amount, category, date) {
+    editingId = id;
+    document.getElementById("title").value = title;
+    document.getElementById("amount").value = amount;
+    document.getElementById("category").value = category;
+    document.getElementById("date").value = date;
+
+    const submitBtn = document.querySelector("#expenseForm button[type='submit']");
+    submitBtn.textContent = "Update Transaction";
+    submitBtn.style.backgroundColor = "#e67e22";
+}
+
+// Handle Form Submission (Handles both Create & Update)
 document.getElementById("expenseForm").addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -108,17 +142,31 @@ document.getElementById("expenseForm").addEventListener("submit", async (e) => {
         date: document.getElementById("date").value
     };
 
+    let url = API_URL;
+    let method = "POST";
+
+    if (editingId !== null) {
+        url = `${API_URL}/${editingId}`;
+        method = "PUT";
+    }
+
     try {
-        const response = await fetch(API_URL, {
-            method: "POST",
+        const response = await fetch(url, {
+            method: method,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(expenseData)
         });
 
         if (response.ok) {
-            document.getElementById("title").value = "";
-            document.getElementById("amount").value = "";
-            loadDashboard(); // Refresh metrics, table, and charts dynamically
+            document.getElementById("expenseForm").reset();
+            document.getElementById('date').valueAsDate = new Date();
+            editingId = null;
+            
+            const submitBtn = document.querySelector("#expenseForm button[type='submit']");
+            submitBtn.textContent = "Add Transaction";
+            submitBtn.style.backgroundColor = "#3498db";
+
+            loadDashboard();
         } else {
             alert("Failed to save transaction.");
         }

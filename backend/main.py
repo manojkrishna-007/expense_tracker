@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from database import init_db, get_db_connection
 
-app = FastAPI(title="Expense Tracker API")
+app = FastAPI(title="Money Manager API")
 
 # Enable CORS so your frontend can communicate with this backend
 app.add_middleware(
@@ -48,8 +48,48 @@ def get_expenses():
         rows = cursor.fetchall()
         conn.close()
         
-        # Convert rows to a clean list of dictionaries
         expenses = [dict(row) for row in rows]
         return expenses
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/expenses/{expense_id}")
+def update_expense(expense_id: int, expense: ExpenseCreate):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE expenses 
+            SET title = ?, amount = ?, category = ?, date = ? 
+            WHERE id = ?
+            """,
+            (expense.title, expense.amount, expense.category, expense.date, expense_id)
+        )
+        conn.commit()
+        rows_affected = cursor.rowcount
+        conn.close()
+        
+        if rows_affected == 0:
+            raise HTTPException(status_code=404, detail="Expense not found")
+            
+        return {"message": "Expense updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/expenses/{expense_id}")
+def delete_expense(expense_id: int):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
+        conn.commit()
+        rows_affected = cursor.rowcount
+        conn.close()
+        
+        if rows_affected == 0:
+            raise HTTPException(status_code=404, detail="Expense not found")
+            
+        return {"message": "Expense deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

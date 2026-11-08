@@ -2,7 +2,7 @@ Step 1:
 Open terminal and type this:
 
 cd backend
-python -m uvicorn backend.main:app --reload
+python -m uvicorn main:app --reload
 
 Step 2:
 Run login.html with Live Server
